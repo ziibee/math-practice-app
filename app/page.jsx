@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 
-function randInt(min: number, max: number) {
+function randInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
