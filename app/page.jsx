@@ -6,7 +6,7 @@ function randInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function makeProblem(operation: "+" | "-") {
+function makeProblem(operation, "+" | "-") {
   let a = randInt(10, 99);
   let b = randInt(10, 99);
 
