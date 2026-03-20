@@ -1,596 +1,683 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-function randInt(min, max) {
+function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function makeProblem(operation) {
-  let a = randInt(10, 99);
-  let b = randInt(10, 99);
+function createProblem(operation) {
+  var left = randomInt(10, 99);
+  var right = randomInt(10, 99);
 
-  if (operation === "-" && b > a) {
-    [a, b] = [b, a];
+  if (operation === "-" && right > left) {
+    var temp = left;
+    left = right;
+    right = temp;
   }
 
   return {
-    a,
-    b,
-    operation,
-    answer: operation === "+" ? a + b : a - b,
+    left: left,
+    right: right,
+    operation: operation,
+    answer: operation === "+" ? left + right : left - right,
   };
 }
 
-function makeSet(count = 10) {
-  return Array.from({ length: count }, (_, i) =>
-    makeProblem(i % 2 === 0 ? "+" : "-")
-  );
-}
+function createMainSet() {
+  var list = [];
+  var i;
 
-function similarPracticeFromMistakes(
-  mistakes: Array<{ a: number; b: number; operation: "+" | "-"; answer: number }>
-) {
-  if (!mistakes.length) return [];
-
-  const source = mistakes.slice(0, 5);
-  while (source.length < 5) {
-    source.push(mistakes[source.length % mistakes.length]);
+  for (i = 0; i < 10; i += 1) {
+    list.push(createProblem(i % 2 === 0 ? "+" : "-"));
   }
 
-  return source.map((m) => {
-    const deltaA = randInt(-8, 8);
-    const deltaB = randInt(-8, 8);
-    let a = Math.min(99, Math.max(10, m.a + deltaA));
-    let b = Math.min(99, Math.max(10, m.b + deltaB));
+  return list;
+}
 
-    if (m.operation === "-" && b > a) {
-      [a, b] = [b, a];
-    }
+function createFollowUpSet(mistakes) {
+  var list = [];
+  var i;
 
-    return {
-      a,
-      b,
-      operation: m.operation,
-      answer: m.operation === "+" ? a + b : a - b,
-    };
+  if (!mistakes || mistakes.length === 0) {
+    return list;
+  }
+
+  for (i = 0; i < 5; i += 1) {
+    var source = mistakes[i % mistakes.length];
+    list.push(createProblem(source.operation));
+  }
+
+  return list;
+}
+
+function formatTime(totalSeconds) {
+  var minutes = Math.floor(totalSeconds / 60);
+  var seconds = totalSeconds % 60;
+  var minuteText = String(minutes).padStart(2, "0");
+  var secondText = String(seconds).padStart(2, "0");
+  return minuteText + ":" + secondText;
+}
+
+function clampAnswerInput(value) {
+  return value.replace(/[^0-9-]/g, "");
+}
+
+function pageStyle() {
+  return {
+    minHeight: "100vh",
+    backgroundColor: "#f5f7fb",
+    padding: "24px",
+    color: "#172033",
+    fontFamily: "Arial, Helvetica, sans-serif",
+  };
+}
+
+function shellStyle() {
+  return {
+    maxWidth: "980px",
+    margin: "0 auto",
+  };
+}
+
+function cardStyle() {
+  return {
+    backgroundColor: "#ffffff",
+    border: "1px solid #dbe2ea",
+    borderRadius: "18px",
+    padding: "20px",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+    marginBottom: "16px",
+  };
+}
+
+function buttonStyle(primary, disabled) {
+  return {
+    appearance: "none",
+    border: primary ? "1px solid #1f3c88" : "1px solid #c9d3df",
+    backgroundColor: disabled ? "#d7dce3" : primary ? "#1f3c88" : "#ffffff",
+    color: disabled ? "#6b7280" : primary ? "#ffffff" : "#172033",
+    borderRadius: "12px",
+    padding: "10px 16px",
+    fontSize: "15px",
+    fontWeight: "700",
+    cursor: disabled ? "not-allowed" : "pointer",
+    marginRight: "10px",
+    marginBottom: "10px",
+  };
+}
+
+function badgeStyle() {
+  return {
+    display: "inline-block",
+    padding: "6px 10px",
+    borderRadius: "999px",
+    border: "1px solid #dbe2ea",
+    backgroundColor: "#f8fafc",
+    fontSize: "13px",
+    fontWeight: "700",
+    marginRight: "8px",
+    marginBottom: "8px",
+  };
+}
+
+function questionRowStyle() {
+  return {
+    display: "grid",
+    gridTemplateColumns: "1fr 140px",
+    gap: "10px",
+    alignItems: "center",
+    border: "1px solid #e5eaf0",
+    borderRadius: "14px",
+    padding: "12px",
+    marginBottom: "10px",
+    backgroundColor: "#ffffff",
+  };
+}
+
+function inputStyle() {
+  return {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "10px 12px",
+    borderRadius: "10px",
+    border: "1px solid #c9d3df",
+    fontSize: "16px",
+  };
+}
+
+function statGridStyle() {
+  return {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: "12px",
+    marginBottom: "16px",
+  };
+}
+
+function miniCardStyle() {
+  return {
+    border: "1px solid #e5eaf0",
+    borderRadius: "14px",
+    padding: "14px",
+    backgroundColor: "#ffffff",
+  };
+}
+
+function renderQuestionList(items, answers, setAnswers, disabled, placeholderText) {
+  return items.map(function (item, index) {
+    return (
+      <div key={index} style={questionRowStyle()}>
+        <div style={{ fontSize: "22px", fontWeight: "700" }}>
+          {index + 1}. {item.left} {item.operation} {item.right} =
+        </div>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={answers[index] || ""}
+          disabled={disabled}
+          placeholder={placeholderText}
+          onChange={function (event) {
+            var next = answers.slice();
+            next[index] = clampAnswerInput(event.target.value);
+            setAnswers(next);
+          }}
+          style={inputStyle()}
+        />
+      </div>
+    );
   });
 }
 
-function formatSeconds(totalSeconds: number) {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+function renderResultRows(details) {
+  return details.map(function (item, index) {
+    return (
+      <div
+        key={index}
+        style={{
+          border: "1px solid #e5eaf0",
+          borderRadius: "14px",
+          padding: "12px",
+          marginBottom: "10px",
+          display: "flex",
+          justifyContent: "space-between",
+          gap: "12px",
+          flexWrap: "wrap",
+          backgroundColor: "#ffffff",
+        }}
+      >
+        <div>
+          <div style={{ fontWeight: "700", marginBottom: "4px" }}>
+            {index + 1}. {item.left} {item.operation} {item.right} = {item.answer}
+          </div>
+          <div style={{ color: "#5b6576", fontSize: "14px" }}>
+            Your answer: {item.userAnswer === "" ? "(blank)" : item.userAnswer}
+          </div>
+        </div>
+        <div style={{ fontWeight: "700", color: item.correct ? "#0f8a3b" : "#b42318" }}>
+          {item.correct ? "Correct" : "Incorrect"}
+        </div>
+      </div>
+    );
+  });
 }
 
 export default function Page() {
-  const [mode, setMode] = useState<"practice" | "stats">("practice");
-  const [questions, setQuestions] = useState(() => makeSet(10));
-  const [answers, setAnswers] = useState<string[]>(Array(10).fill(""));
-  const [submitted, setSubmitted] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
-  const [timeElapsed, setTimeElapsed] = useState(0);
+  var initialQuestions = createMainSet();
+  var initialAnswers = ["", "", "", "", "", "", "", "", "", ""];
 
-  const [extraQuestions, setExtraQuestions] = useState<any[]>([]);
-  const [extraAnswers, setExtraAnswers] = useState<string[]>([]);
-  const [extraSubmitted, setExtraSubmitted] = useState(false);
+  var modeState = useState("practice");
+  var mode = modeState[0];
+  var setMode = modeState[1];
 
-  const [history, setHistory] = useState<any[]>([]);
+  var questionsState = useState(initialQuestions);
+  var questions = questionsState[0];
+  var setQuestions = questionsState[1];
 
-  useEffect(() => {
-    if (!hasStarted || submitted) return;
-    const interval = window.setInterval(() => {
-      setTimeElapsed((prev) => prev + 1);
+  var answersState = useState(initialAnswers);
+  var answers = answersState[0];
+  var setAnswers = answersState[1];
+
+  var startedState = useState(false);
+  var started = startedState[0];
+  var setStarted = startedState[1];
+
+  var submittedState = useState(false);
+  var submitted = submittedState[0];
+  var setSubmitted = submittedState[1];
+
+  var timeState = useState(0);
+  var time = timeState[0];
+  var setTime = timeState[1];
+
+  var followUpState = useState([]);
+  var followUpQuestions = followUpState[0];
+  var setFollowUpQuestions = followUpState[1];
+
+  var followUpAnswersState = useState([]);
+  var followUpAnswers = followUpAnswersState[0];
+  var setFollowUpAnswers = followUpAnswersState[1];
+
+  var followUpSubmittedState = useState(false);
+  var followUpSubmitted = followUpSubmittedState[0];
+  var setFollowUpSubmitted = followUpSubmittedState[1];
+
+  var historyState = useState([]);
+  var history = historyState[0];
+  var setHistory = historyState[1];
+
+  useEffect(function () {
+    if (!started || submitted) {
+      return;
+    }
+
+    var timerId = window.setInterval(function () {
+      setTime(function (previous) {
+        return previous + 1;
+      });
     }, 1000);
-    return () => window.clearInterval(interval);
-  }, [hasStarted, submitted]);
 
-  const mainResults = useMemo(() => {
-    if (!submitted) return null;
+    return function () {
+      window.clearInterval(timerId);
+    };
+  }, [started, submitted]);
 
-    const details = questions.map((q, i) => {
-      const userAnswer = Number(answers[i]);
-      const correct = userAnswer === q.answer;
-      return { ...q, userAnswer: answers[i], correct, index: i + 1 };
+  var mainResults = useMemo(function () {
+    if (!submitted) {
+      return null;
+    }
+
+    var details = questions.map(function (item, index) {
+      var userAnswer = answers[index] || "";
+      var correct = Number(userAnswer) === item.answer;
+      return {
+        left: item.left,
+        right: item.right,
+        operation: item.operation,
+        answer: item.answer,
+        userAnswer: userAnswer,
+        correct: correct,
+      };
     });
 
-    const correctCount = details.filter((d) => d.correct).length;
-    const mistakes = details.filter((d) => !d.correct);
+    var correctCount = details.filter(function (item) {
+      return item.correct;
+    }).length;
+
+    var mistakes = details.filter(function (item) {
+      return !item.correct;
+    });
+
+    var additionMistakes = mistakes.filter(function (item) {
+      return item.operation === "+";
+    }).length;
+
+    var subtractionMistakes = mistakes.filter(function (item) {
+      return item.operation === "-";
+    }).length;
 
     return {
-      details,
-      correctCount,
-      mistakes,
+      details: details,
+      correctCount: correctCount,
+      mistakes: mistakes,
       accuracy: Math.round((correctCount / questions.length) * 100),
+      additionMistakes: additionMistakes,
+      subtractionMistakes: subtractionMistakes,
     };
   }, [submitted, questions, answers]);
 
-  const extraResults = useMemo(() => {
-    if (!extraSubmitted) return null;
+  var followUpResults = useMemo(function () {
+    if (!followUpSubmitted) {
+      return null;
+    }
 
-    const details = extraQuestions.map((q, i) => {
-      const userAnswer = Number(extraAnswers[i]);
-      const correct = userAnswer === q.answer;
-      return { ...q, userAnswer: extraAnswers[i], correct, index: i + 1 };
+    var details = followUpQuestions.map(function (item, index) {
+      var userAnswer = followUpAnswers[index] || "";
+      var correct = Number(userAnswer) === item.answer;
+      return {
+        left: item.left,
+        right: item.right,
+        operation: item.operation,
+        answer: item.answer,
+        userAnswer: userAnswer,
+        correct: correct,
+      };
     });
 
-    const correctCount = details.filter((d) => d.correct).length;
+    var correctCount = details.filter(function (item) {
+      return item.correct;
+    }).length;
 
     return {
-      details,
-      correctCount,
-      accuracy: Math.round((correctCount / Math.max(1, extraQuestions.length)) * 100),
+      details: details,
+      correctCount: correctCount,
+      accuracy: followUpQuestions.length ? Math.round((correctCount / followUpQuestions.length) * 100) : 0,
     };
-  }, [extraSubmitted, extraQuestions, extraAnswers]);
+  }, [followUpSubmitted, followUpQuestions, followUpAnswers]);
 
-  const stats = useMemo(() => {
-    const totalSets = history.length;
-    const averageAccuracy = totalSets
-      ? Math.round(history.reduce((sum: number, item: any) => sum + item.accuracy, 0) / totalSets)
-      : 0;
-    const averageTimeSeconds = totalSets
-      ? Math.round(history.reduce((sum: number, item: any) => sum + item.timeSeconds, 0) / totalSets)
-      : 0;
-    const bestScore = totalSets ? Math.max(...history.map((item: any) => item.correctCount)) : 0;
-    const fastestTimeSeconds = totalSets ? Math.min(...history.map((item: any) => item.timeSeconds)) : 0;
-    const totalAdditionMistakes = history.reduce((sum: number, item: any) => sum + item.additionMistakes, 0);
-    const totalSubtractionMistakes = history.reduce((sum: number, item: any) => sum + item.subtractionMistakes, 0);
+  var statistics = useMemo(function () {
+    var totalSets = history.length;
+    var totalCorrect = 0;
+    var totalAccuracy = 0;
+    var totalTime = 0;
+    var bestScore = 0;
+    var fastest = 0;
+    var totalAddMistakes = 0;
+    var totalSubMistakes = 0;
+
+    history.forEach(function (item, index) {
+      totalCorrect += item.correctCount;
+      totalAccuracy += item.accuracy;
+      totalTime += item.time;
+      totalAddMistakes += item.additionMistakes;
+      totalSubMistakes += item.subtractionMistakes;
+
+      if (item.correctCount > bestScore) {
+        bestScore = item.correctCount;
+      }
+
+      if (index === 0 || item.time < fastest) {
+        fastest = item.time;
+      }
+    });
 
     return {
-      totalSets,
-      averageAccuracy,
-      averageTimeSeconds,
-      bestScore,
-      fastestTimeSeconds,
-      totalAdditionMistakes,
-      totalSubtractionMistakes,
+      totalSets: totalSets,
+      averageAccuracy: totalSets ? Math.round(totalAccuracy / totalSets) : 0,
+      averageTime: totalSets ? Math.round(totalTime / totalSets) : 0,
+      bestScore: bestScore,
+      fastest: fastest,
+      totalAddMistakes: totalAddMistakes,
+      totalSubMistakes: totalSubMistakes,
     };
   }, [history]);
 
-  const reportText = useMemo(() => {
-    if (!mainResults) return "Complete a set to see your report.";
-
-    if (mainResults.mistakes.length === 0) {
-      return `Excellent work. You got everything correct in ${formatSeconds(timeElapsed)}.`;
-    }
-
-    const addMistakes = mainResults.mistakes.filter((m: any) => m.operation === "+").length;
-    const subMistakes = mainResults.mistakes.filter((m: any) => m.operation === "-").length;
-
-    const focus = [
-      addMistakes ? `${addMistakes} addition slip${addMistakes > 1 ? "s" : ""}` : null,
-      subMistakes ? `${subMistakes} subtraction slip${subMistakes > 1 ? "s" : ""}` : null,
-    ]
-      .filter(Boolean)
-      .join(" and ");
-
-    return `You finished in ${formatSeconds(timeElapsed)} and made ${mainResults.mistakes.length} mistake${mainResults.mistakes.length > 1 ? "s" : ""}, mostly in ${focus}.`;
-  }, [mainResults, timeElapsed]);
-
-  function startSet() {
-    if (hasStarted && !submitted) return;
-    setHasStarted(true);
+  function startNewSet() {
+    setQuestions(createMainSet());
+    setAnswers(["", "", "", "", "", "", "", "", "", ""]);
+    setStarted(true);
     setSubmitted(false);
-    setExtraSubmitted(false);
-    setTimeElapsed(0);
-    setAnswers(Array(10).fill(""));
-    setExtraQuestions([]);
-    setExtraAnswers([]);
-    setQuestions(makeSet(10));
+    setTime(0);
+    setFollowUpQuestions([]);
+    setFollowUpAnswers([]);
+    setFollowUpSubmitted(false);
   }
 
-  function resetMain() {
-    setQuestions(makeSet(10));
-    setAnswers(Array(10).fill(""));
+  function resetEverything() {
+    setQuestions(createMainSet());
+    setAnswers(["", "", "", "", "", "", "", "", "", ""]);
+    setStarted(false);
     setSubmitted(false);
-    setHasStarted(false);
-    setTimeElapsed(0);
-    setExtraQuestions([]);
-    setExtraAnswers([]);
-    setExtraSubmitted(false);
+    setTime(0);
+    setFollowUpQuestions([]);
+    setFollowUpAnswers([]);
+    setFollowUpSubmitted(false);
     setMode("practice");
   }
 
-  function submitMain() {
-    if (!hasStarted || submitted) return;
+  function checkMainAnswers() {
+    var evaluatedDetails;
+    var mistakes;
 
-    const details = questions.map((q, i) => ({
-      ...q,
-      userAnswer: answers[i],
-      correct: Number(answers[i]) === q.answer,
-    }));
+    if (!started || submitted) {
+      return;
+    }
 
-    const mistakes = details.filter((d) => !d.correct);
-    const correctCount = details.filter((d) => d.correct).length;
-    const accuracy = Math.round((correctCount / questions.length) * 100);
-    const additionMistakes = mistakes.filter((d) => d.operation === "+").length;
-    const subtractionMistakes = mistakes.filter((d) => d.operation === "-").length;
+    evaluatedDetails = questions.map(function (item, index) {
+      return {
+        left: item.left,
+        right: item.right,
+        operation: item.operation,
+        answer: item.answer,
+        userAnswer: answers[index] || "",
+        correct: Number(answers[index] || "") === item.answer,
+      };
+    });
+
+    mistakes = evaluatedDetails.filter(function (item) {
+      return !item.correct;
+    });
 
     setSubmitted(true);
 
-    setHistory((prev) => [
-      {
-        id: Date.now(),
-        completedAt: new Date().toLocaleString(),
-        correctCount,
-        accuracy,
-        mistakes: mistakes.length,
-        additionMistakes,
-        subtractionMistakes,
-        timeSeconds: timeElapsed,
-      },
-      ...prev,
-    ]);
+    setHistory(function (previous) {
+      var correctCount = evaluatedDetails.filter(function (item) {
+        return item.correct;
+      }).length;
+
+      return [
+        {
+          completedAt: new Date().toLocaleString(),
+          correctCount: correctCount,
+          accuracy: Math.round((correctCount / 10) * 100),
+          time: time,
+          additionMistakes: mistakes.filter(function (item) {
+            return item.operation === "+";
+          }).length,
+          subtractionMistakes: mistakes.filter(function (item) {
+            return item.operation === "-";
+          }).length,
+        },
+      ].concat(previous);
+    });
 
     if (mistakes.length > 0) {
-      const next = similarPracticeFromMistakes(mistakes);
-      setExtraQuestions(next);
-      setExtraAnswers(Array(next.length).fill(""));
+      var nextSet = createFollowUpSet(mistakes);
+      setFollowUpQuestions(nextSet);
+      setFollowUpAnswers(["", "", "", "", ""]);
     } else {
-      setExtraQuestions([]);
-      setExtraAnswers([]);
+      setFollowUpQuestions([]);
+      setFollowUpAnswers([]);
     }
   }
 
-  function cardStyle(): React.CSSProperties {
-    return {
-      background: "white",
-      border: "1px solid #e5e7eb",
-      borderRadius: 20,
-      padding: 20,
-      boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-    };
-  }
-
-  function badgeStyle(kind: "dark" | "light" | "outline" = "light"): React.CSSProperties {
-    const map = {
-      dark: { background: "#111827", color: "white", border: "1px solid #111827" },
-      light: { background: "#f3f4f6", color: "#111827", border: "1px solid #e5e7eb" },
-      outline: { background: "white", color: "#111827", border: "1px solid #d1d5db" },
-    };
-    return {
-      display: "inline-block",
-      padding: "6px 12px",
-      borderRadius: 9999,
-      fontSize: 14,
-      fontWeight: 600,
-      ...map[kind],
-    };
-  }
-
-  function buttonStyle(primary = true): React.CSSProperties {
-    return {
-      padding: "10px 16px",
-      borderRadius: 12,
-      border: primary ? "1px solid #111827" : "1px solid #d1d5db",
-      background: primary ? "#111827" : "white",
-      color: primary ? "white" : "#111827",
-      fontWeight: 600,
-      cursor: "pointer",
-    };
-  }
-
-  function renderQuestionList(
-    list: any[],
-    userAnswers: string[],
-    setUserAnswers: React.Dispatch<React.SetStateAction<string[]>>,
-    disabled: boolean,
-    placeholder = "Answer"
-  ) {
-    return (
-      <div style={{ display: "grid", gap: 12 }}>
-        {list.map((q, i) => (
-          <div
-            key={`${q.a}-${q.b}-${q.operation}-${i}`}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 120px",
-              gap: 8,
-              alignItems: "center",
-              border: "1px solid #e5e7eb",
-              borderRadius: 16,
-              padding: 12,
-              background: "white",
-            }}
-          >
-            <div style={{ fontSize: 20, fontWeight: 600 }}>
-              {i + 1}. {q.a} {q.operation} {q.b} =
-            </div>
-            <input
-              inputMode="numeric"
-              value={userAnswers[i] ?? ""}
-              disabled={disabled}
-              placeholder={placeholder}
-              onChange={(e) => {
-                const next = [...userAnswers];
-                next[i] = e.target.value.replace(/[^0-9-]/g, "");
-                setUserAnswers(next);
-              }}
-              style={{
-                padding: "10px 12px",
-                borderRadius: 12,
-                border: "1px solid #d1d5db",
-                fontSize: 16,
-              }}
-            />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  function renderResults(title: string, results: any) {
-    if (!results) return null;
-
-    return (
-      <div style={cardStyle()}>
-        <h3 style={{ marginTop: 0 }}>{title}</h3>
-        <p style={{ color: "#6b7280" }}>
-          Score: {results.correctCount} / {results.details.length} · Accuracy: {results.accuracy}%
-        </p>
-        <div style={{ display: "grid", gap: 12 }}>
-          {results.details.map((d: any) => (
-            <div
-              key={`${title}-${d.index}`}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 12,
-                border: "1px solid #e5e7eb",
-                borderRadius: 16,
-                padding: 12,
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 600 }}>
-                  {d.index}. {d.a} {d.operation} {d.b} = {d.answer}
-                </div>
-                <div style={{ fontSize: 14, color: "#6b7280" }}>
-                  Your answer: {d.userAnswer || "(blank)"}
-                </div>
-              </div>
-              <div>
-                <span style={badgeStyle(d.correct ? "dark" : "outline")}>
-                  {d.correct ? "Correct" : "Incorrect"}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f9fafb",
-        padding: 24,
-        fontFamily: "Arial, sans-serif",
-        color: "#111827",
-      }}
-    >
-      <div style={{ maxWidth: 1000, margin: "0 auto", display: "grid", gap: 24 }}>
+    <div style={pageStyle()}>
+      <div style={shellStyle()}>
         <div style={cardStyle()}>
-          <h1 style={{ margin: 0, fontSize: 36 }}>Basic Math Practice</h1>
-          <p style={{ color: "#6b7280", marginTop: 8 }}>
-            Practice 2-digit addition and subtraction with timed sets, instant checking,
-            progress tracking, and follow-up questions based on mistakes.
+          <h1 style={{ marginTop: 0, marginBottom: "8px", fontSize: "34px" }}>Basic Math Practice</h1>
+          <p style={{ marginTop: 0, color: "#5b6576", lineHeight: "1.5" }}>
+            Practice 2-digit addition and subtraction with a timer, checked answers, a report for each set, progress statistics, and 5 similar follow-up questions when you make mistakes.
           </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-            <span style={badgeStyle("light")}>2-digit only</span>
-            <span style={badgeStyle("light")}>10 questions</span>
-            <span style={badgeStyle("light")}>Timed sets</span>
-            <span style={badgeStyle("light")}>Stats page</span>
+          <div>
+            <span style={badgeStyle()}>2-digit only</span>
+            <span style={badgeStyle()}>10 questions</span>
+            <span style={badgeStyle()}>Timed sets</span>
+            <span style={badgeStyle()}>Statistics page</span>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button style={buttonStyle(mode === "practice")} onClick={() => setMode("practice")}>
+        <div style={{ marginBottom: "16px" }}>
+          <button
+            type="button"
+            onClick={function () {
+              setMode("practice");
+            }}
+            style={buttonStyle(mode === "practice", false)}
+          >
             Practice
           </button>
-          <button style={buttonStyle(mode === "stats")} onClick={() => setMode("stats")}>
+          <button
+            type="button"
+            onClick={function () {
+              setMode("stats");
+            }}
+            style={buttonStyle(mode === "stats", false)}
+          >
             Statistics
           </button>
         </div>
 
-        {mode === "practice" && (
-          <>
+        {mode === "practice" ? (
+          <div>
             <div style={cardStyle()}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
                 <div>
-                  <h2 style={{ marginTop: 0 }}>Main Practice Set</h2>
-                  <p style={{ color: "#6b7280" }}>
-                    Press Start to begin the timer. The clock stops when you click Check Answers.
+                  <h2 style={{ marginTop: 0, marginBottom: "6px" }}>Main Practice Set</h2>
+                  <p style={{ marginTop: 0, color: "#5b6576" }}>
+                    Press Start to begin the timer. The timer stops when you click Check Answers.
                   </p>
                 </div>
-                <div style={{ ...badgeStyle("outline"), alignSelf: "start" }}>
-                  Time: {formatSeconds(timeElapsed)}
-                </div>
+                <div style={{ fontWeight: "700", fontSize: "20px" }}>Time: {formatTime(time)}</div>
               </div>
 
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
-                {(!hasStarted || submitted) && (
-                  <button style={buttonStyle(true)} onClick={startSet}>
-                    {submitted ? "Start New Timed Set" : "Start"}
-                  </button>
-                )}
-                <button style={buttonStyle(false)} onClick={resetMain}>
+              <div style={{ marginBottom: "8px" }}>
+                <button type="button" onClick={startNewSet} style={buttonStyle(true, false)}>
+                  {started && !submitted ? "Restart Set" : "Start"}
+                </button>
+                <button type="button" onClick={resetEverything} style={buttonStyle(false, false)}>
                   Reset
                 </button>
               </div>
 
-              {renderQuestionList(
-                questions,
-                answers,
-                setAnswers,
-                !hasStarted || submitted,
-                hasStarted ? "Answer" : "Press Start"
-              )}
+              <div>{renderQuestionList(questions, answers, setAnswers, !started || submitted, started ? "Answer" : "Press Start")}</div>
 
-              <div style={{ marginTop: 16 }}>
-                <button style={buttonStyle(true)} onClick={submitMain} disabled={submitted || !hasStarted}>
+              <div style={{ marginTop: "12px" }}>
+                <button
+                  type="button"
+                  onClick={checkMainAnswers}
+                  disabled={!started || submitted}
+                  style={buttonStyle(true, !started || submitted)}
+                >
                   Check Answers
                 </button>
               </div>
             </div>
 
-            {submitted && mainResults && (
-              <>
+            {submitted && mainResults ? (
+              <div>
                 <div style={cardStyle()}>
                   <h2 style={{ marginTop: 0 }}>Report</h2>
-                  <p style={{ color: "#6b7280" }}>{reportText}</p>
+                  <p style={{ color: "#5b6576" }}>
+                    Score: {mainResults.correctCount}/10. Accuracy: {mainResults.accuracy}%. Time used: {formatTime(time)}.
+                    {mainResults.mistakes.length > 0
+                      ? " You made " + mainResults.mistakes.length + " mistake(s), so 5 similar questions are ready below."
+                      : " Perfect set. No extra questions needed."}
+                  </p>
                   <div
                     style={{
                       width: "100%",
-                      height: 12,
-                      background: "#e5e7eb",
-                      borderRadius: 9999,
+                      height: "12px",
+                      backgroundColor: "#e7edf4",
+                      borderRadius: "999px",
                       overflow: "hidden",
-                      marginTop: 12,
                     }}
                   >
                     <div
                       style={{
-                        width: `${mainResults.accuracy}%`,
+                        width: mainResults.accuracy + "%",
                         height: "100%",
-                        background: "#111827",
+                        backgroundColor: "#1f3c88",
                       }}
                     />
                   </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-                    <span style={badgeStyle("dark")}>Score: {mainResults.correctCount} / 10</span>
-                    <span style={badgeStyle("light")}>Accuracy: {mainResults.accuracy}%</span>
-                    <span style={badgeStyle("outline")}>Mistakes: {mainResults.mistakes.length}</span>
-                    <span style={badgeStyle("outline")}>Time: {formatSeconds(timeElapsed)}</span>
-                  </div>
                 </div>
 
-                {renderResults("Checked Answers", mainResults)}
-              </>
-            )}
+                <div style={cardStyle()}>
+                  <h2 style={{ marginTop: 0 }}>Checked Answers</h2>
+                  {renderResultRows(mainResults.details)}
+                </div>
+              </div>
+            ) : null}
 
-            {submitted && extraQuestions.length > 0 && (
+            {submitted && followUpQuestions.length > 0 ? (
               <div style={cardStyle()}>
-                <h2 style={{ marginTop: 0 }}>Extra Practice: 5 Similar Questions</h2>
-                <p style={{ color: "#6b7280" }}>
-                  These are based on the kinds of mistakes from the timed set.
-                </p>
-
-                {renderQuestionList(extraQuestions, extraAnswers, setExtraAnswers, extraSubmitted, "Answer")}
-
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 16 }}>
+                <h2 style={{ marginTop: 0 }}>5 Similar Questions</h2>
+                <p style={{ color: "#5b6576" }}>These follow-up questions match the type of mistakes from your main set.</p>
+                <div>{renderQuestionList(followUpQuestions, followUpAnswers, setFollowUpAnswers, followUpSubmitted, "Answer")}</div>
+                <div style={{ marginTop: "12px" }}>
                   <button
-                    style={buttonStyle(true)}
-                    onClick={() => setExtraSubmitted(true)}
-                    disabled={extraSubmitted}
-                  >
-                    Check Extra Practice
-                  </button>
-                  <button
-                    style={buttonStyle(false)}
-                    onClick={() => {
-                      const next = similarPracticeFromMistakes(mainResults.mistakes);
-                      setExtraQuestions(next);
-                      setExtraAnswers(Array(next.length).fill(""));
-                      setExtraSubmitted(false);
+                    type="button"
+                    onClick={function () {
+                      setFollowUpSubmitted(true);
                     }}
+                    disabled={followUpSubmitted}
+                    style={buttonStyle(true, followUpSubmitted)}
                   >
-                    Generate New Similar 5
+                    Check Follow-Up
+                  </button>
+                  <button
+                    type="button"
+                    onClick={function () {
+                      var nextSet = createFollowUpSet(mainResults.mistakes);
+                      setFollowUpQuestions(nextSet);
+                      setFollowUpAnswers(["", "", "", "", ""]);
+                      setFollowUpSubmitted(false);
+                    }}
+                    style={buttonStyle(false, false)}
+                  >
+                    New Similar 5
                   </button>
                 </div>
               </div>
-            )}
+            ) : null}
 
-            {extraSubmitted && extraResults && renderResults("Extra Practice Results", extraResults)}
-          </>
-        )}
-
-        {mode === "stats" && (
-          <div style={{ display: "grid", gap: 24 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
+            {followUpSubmitted && followUpResults ? (
               <div style={cardStyle()}>
-                <div style={{ color: "#6b7280", fontSize: 14 }}>Total sets completed</div>
-                <div style={{ fontSize: 32, fontWeight: 700 }}>{stats.totalSets}</div>
+                <h2 style={{ marginTop: 0 }}>Follow-Up Results</h2>
+                <p style={{ color: "#5b6576" }}>
+                  Score: {followUpResults.correctCount}/5. Accuracy: {followUpResults.accuracy}%.
+                </p>
+                {renderResultRows(followUpResults.details)}
               </div>
-              <div style={cardStyle()}>
-                <div style={{ color: "#6b7280", fontSize: 14 }}>Average accuracy</div>
-                <div style={{ fontSize: 32, fontWeight: 700 }}>{stats.averageAccuracy}%</div>
+            ) : null}
+          </div>
+        ) : (
+          <div>
+            <div style={statGridStyle()}>
+              <div style={miniCardStyle()}>
+                <div style={{ color: "#5b6576", fontSize: "14px" }}>Total sets</div>
+                <div style={{ fontSize: "30px", fontWeight: "700" }}>{statistics.totalSets}</div>
               </div>
-              <div style={cardStyle()}>
-                <div style={{ color: "#6b7280", fontSize: 14 }}>Best score</div>
-                <div style={{ fontSize: 32, fontWeight: 700 }}>{stats.bestScore}/10</div>
+              <div style={miniCardStyle()}>
+                <div style={{ color: "#5b6576", fontSize: "14px" }}>Average accuracy</div>
+                <div style={{ fontSize: "30px", fontWeight: "700" }}>{statistics.averageAccuracy}%</div>
               </div>
-              <div style={cardStyle()}>
-                <div style={{ color: "#6b7280", fontSize: 14 }}>Fastest time</div>
-                <div style={{ fontSize: 32, fontWeight: 700 }}>
-                  {stats.totalSets ? formatSeconds(stats.fastestTimeSeconds) : "--:--"}
+              <div style={miniCardStyle()}>
+                <div style={{ color: "#5b6576", fontSize: "14px" }}>Best score</div>
+                <div style={{ fontSize: "30px", fontWeight: "700" }}>{statistics.bestScore}/10</div>
+              </div>
+              <div style={miniCardStyle()}>
+                <div style={{ color: "#5b6576", fontSize: "14px" }}>Fastest time</div>
+                <div style={{ fontSize: "30px", fontWeight: "700" }}>
+                  {statistics.totalSets > 0 ? formatTime(statistics.fastest) : "--:--"}
                 </div>
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
-              <div style={cardStyle()}>
-                <h2 style={{ marginTop: 0 }}>Set History</h2>
-                <p style={{ color: "#6b7280" }}>Your recent 10-question sets.</p>
-                {history.length === 0 ? (
-                  <div style={{ border: "1px solid #e5e7eb", borderRadius: 16, padding: 16, color: "#6b7280" }}>
-                    No completed sets yet. Finish a timed practice round to start tracking progress.
-                  </div>
-                ) : (
-                  <div style={{ display: "grid", gap: 12 }}>
-                    {history.map((item, index) => (
-                      <div
-                        key={item.id}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 16,
-                          padding: 16,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontWeight: 600 }}>Set {history.length - index}</div>
-                          <div style={{ fontSize: 14, color: "#6b7280" }}>
-                            Completed: {item.completedAt}
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          <span style={badgeStyle("dark")}>Score: {item.correctCount}/10</span>
-                          <span style={badgeStyle("light")}>Accuracy: {item.accuracy}%</span>
-                          <span style={badgeStyle("outline")}>Time: {formatSeconds(item.timeSeconds)}</span>
-                          <span style={badgeStyle("outline")}>Mistakes: {item.mistakes}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+            <div style={cardStyle()}>
+              <h2 style={{ marginTop: 0 }}>Focus Areas</h2>
+              <div style={{ marginBottom: "10px" }}>Average time: {statistics.totalSets > 0 ? formatTime(statistics.averageTime) : "--:--"}</div>
+              <div style={{ marginBottom: "10px" }}>Addition mistakes: {statistics.totalAddMistakes}</div>
+              <div>Subtraction mistakes: {statistics.totalSubMistakes}</div>
+            </div>
 
-              <div style={cardStyle()}>
-                <h2 style={{ marginTop: 0 }}>Focus Areas</h2>
-                <p style={{ color: "#6b7280" }}>Track which operation needs more practice.</p>
-                <div style={{ display: "grid", gap: 12 }}>
-                  <div style={{ border: "1px solid #e5e7eb", borderRadius: 16, padding: 16 }}>
-                    <div style={{ color: "#6b7280", fontSize: 14 }}>Average time</div>
-                    <div style={{ fontSize: 28, fontWeight: 700 }}>
-                      {stats.totalSets ? formatSeconds(stats.averageTimeSeconds) : "--:--"}
+            <div style={cardStyle()}>
+              <h2 style={{ marginTop: 0 }}>Set History</h2>
+              {history.length === 0 ? (
+                <div style={{ color: "#5b6576" }}>No completed sets yet. Finish one timed set to start tracking progress.</div>
+              ) : (
+                history.map(function (item, index) {
+                  return (
+                    <div
+                      key={index}
+                      style={{
+                        border: "1px solid #e5eaf0",
+                        borderRadius: "14px",
+                        padding: "12px",
+                        marginBottom: "10px",
+                        backgroundColor: "#ffffff",
+                      }}
+                    >
+                      <div style={{ fontWeight: "700", marginBottom: "4px" }}>Set {history.length - index}</div>
+                      <div style={{ color: "#5b6576", fontSize: "14px", marginBottom: "6px" }}>{item.completedAt}</div>
+                      <div>Score: {item.correctCount}/10</div>
+                      <div>Accuracy: {item.accuracy}%</div>
+                      <div>Time: {formatTime(item.time)}</div>
                     </div>
-                  </div>
-                  <div style={{ border: "1px solid #e5e7eb", borderRadius: 16, padding: 16 }}>
-                    <div style={{ color: "#6b7280", fontSize: 14 }}>Addition mistakes</div>
-                    <div style={{ fontSize: 28, fontWeight: 700 }}>{stats.totalAdditionMistakes}</div>
-                  </div>
-                  <div style={{ border: "1px solid #e5e7eb", borderRadius: 16, padding: 16 }}>
-                    <div style={{ color: "#6b7280", fontSize: 14 }}>Subtraction mistakes</div>
-                    <div style={{ fontSize: 28, fontWeight: 700 }}>{stats.totalSubtractionMistakes}</div>
-                  </div>
-                </div>
-              </div>
+                  );
+                })
+              )}
             </div>
           </div>
         )}
